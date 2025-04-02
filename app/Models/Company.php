@@ -16,6 +16,7 @@ class Company extends Model
 
     protected $fillable = [
         'name',
+        'slug',
         'website_url',
         'logo_path',
         'description',

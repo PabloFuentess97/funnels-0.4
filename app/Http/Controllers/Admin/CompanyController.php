@@ -7,6 +7,7 @@ use App\Models\Company;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Illuminate\Support\Str;
 
 class CompanyController extends Controller
 {
@@ -42,6 +43,7 @@ class CompanyController extends Controller
         // Crear la compañía
         $company = Company::create([
             'name' => $validatedData['name'],
+            'slug' => Str::slug($validatedData['name']), // Generar slug a partir del nombre
             'owner_id' => $validatedData['owner_id'] ?? null, // Asignar owner_id si se proporcionó
         ]);
 
@@ -108,6 +110,7 @@ class CompanyController extends Controller
 
         // Actualizar los datos de la compañía
         $company->name = $validatedData['name'];
+        $company->slug = Str::slug($validatedData['name']); // Actualizar el slug si cambia el nombre
         $company->owner_id = $newOwnerId;
         $company->save();
 
