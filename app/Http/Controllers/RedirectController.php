@@ -55,12 +55,30 @@ class RedirectController extends Controller
                     // Desactivar la ronda actual
                     $currentRound->update(['is_active' => false, 'is_completed' => true]);
                     
+                    // Notificar que la ronda ha terminado
+                    $this->notifyProjectMembers(
+                        $project,
+                        'Ronda completada',
+                        "La ronda #{$currentRound->round_number} del proyecto '{$project->name}' ha sido completada.",
+                        'success',
+                        ['action_url' => route('projects.show', $project)]
+                    );
+
                     // Crear nueva ronda automáticamente
                     $newRound = $project->rounds()->create([
                         'round_number' => $currentRound->round_number + 1,
                         'is_active' => true,
                         'is_completed' => false
                     ]);
+
+                    // Notificar que una nueva ronda ha comenzado
+                    $this->notifyProjectMembers(
+                        $project,
+                        'Nueva ronda iniciada',
+                        "La ronda #{$newRound->round_number} del proyecto '{$project->name}' ha comenzado.",
+                        'info',
+                        ['action_url' => route('projects.show', $project)]
+                    );
 
                     // Obtener el primer link nuevamente
                     $link = Link::where('project_id', $project->id)
@@ -74,6 +92,16 @@ class RedirectController extends Controller
                     // Si no hay más links disponibles y no es un proyecto de rondas infinitas,
                     // marcar la ronda como completada y redirigir según la configuración
                     $currentRound->update(['is_active' => false, 'is_completed' => true]);
+
+                    // Notificar que la ronda ha terminado
+                    $this->notifyProjectMembers(
+                        $project,
+                        'Ronda completada',
+                        "La ronda #{$currentRound->round_number} del proyecto '{$project->name}' ha sido completada.",
+                        'success',
+                        ['action_url' => route('projects.show', $project)]
+                    );
+
                     DB::commit();
                     return $project->fallback_url 
                         ? redirect($project->fallback_url)
@@ -88,6 +116,25 @@ class RedirectController extends Controller
                 'ip_address' => request()->ip(),
                 'user_agent' => request()->userAgent()
             ]);
+
+            // Calcular el progreso de la ronda
+            $totalClicksInRound = Click::where('round_id', $currentRound->id)->count();
+            $totalClickLimit = $project->links()->where('is_active', true)->sum('click_limit');
+            $roundProgress = ($totalClicksInRound / $totalClickLimit) * 100;
+
+            // Notificar cuando la ronda alcanza ciertos porcentajes
+            $notificationThresholds = [80, 90];
+            foreach ($notificationThresholds as $threshold) {
+                if ($roundProgress >= $threshold && $roundProgress < ($threshold + 10)) {
+                    $this->notifyProjectMembers(
+                        $project,
+                        "Ronda al {$threshold}%",
+                        "La ronda #{$currentRound->round_number} del proyecto '{$project->name}' ha alcanzado el {$threshold}% de su capacidad.",
+                        'warning',
+                        ['action_url' => route('projects.show', $project)]
+                    );
+                }
+            }
 
             // Actualizar el contador de clicks del link
             $link->increment('current_clicks');
